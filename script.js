@@ -1,8 +1,24 @@
 const slides = [{"file": "01_krishna_blessings.jpg", "kicker": "A BEAUTIFUL NEW CHAPTER", "title": "A little\nmiracle", "accent": "is on its way…", "body": "A tiny new heartbeat,\na lifetime of love.", "kind": "opening", "src": "assets/slides/01_krishna_blessings.jpg"}, {"file": "02_krishna_radha.jpg", "kicker": "LOVE, LAUGHTER & LITTLE MOMENTS", "title": "A little mischief,", "accent": "endless love…", "body": "May our little one be surrounded\nby joy, wonder and love.", "kind": "krishna", "src": "assets/slides/02_krishna_radha.jpg"}, {"file": "03_swathy_rahul.jpg", "kicker": "OUR GREATEST ADVENTURE BEGINS", "title": "Swathy &\nRahul", "accent": "Our hearts are\ngrowing…", "body": "Soon to be\nAmma & Appa", "kind": "names", "src": "assets/slides/03_swathy_rahul.jpg"}, {"file": "04_baby_shower.jpg", "kicker": "A DAY FILLED WITH LOVE", "title": "Join us for our", "accent": "Baby Shower", "body": "As we celebrate\nour little one on the way,\nwe would be delighted\nto have you with us.", "kind": "invite", "src": "assets/slides/04_baby_shower.jpg"}, {"file": "05_event_details.jpg", "kicker": "SAVE THE DATE", "title": "Friday, 12 February\n2027", "accent": "8:00 AM", "body": "Raghu Saran Mini Hall\nNo. 1, 1st Cross Street,\nLIC Colony, Pammal, Chennai\nTamil Nadu – 600075\n(Approx. 2 km from Pallavaram\nRailway Station)", "kind": "details", "src": "assets/slides/05_event_details.jpg"}, {"file": "06_closing_blessings.jpg", "kicker": "A LITTLE LOVE MAKES A BIG BLESSING", "title": "Your presence\nwill make our day", "accent": "complete.", "body": "With love and warm wishes,\nSwathy & Rahul", "kind": "closing", "src": "assets/slides/06_closing_blessings.jpg"}];
 const duration=8000;let idx=0,playing=true,elapsed=0,last=performance.now();
 const art=document.getElementById('art'),content=document.getElementById('content'),fill=document.getElementById('fill'),dots=document.getElementById('dots'),play=document.getElementById('play');
-const bgMusic=document.getElementById('bgMusic'),musicBtn=document.getElementById('musicBtn');bgMusic.volume=0.7;
-async function toggleMusic(){if(bgMusic.paused){try{await bgMusic.play();musicBtn.textContent='♫ Music on';musicBtn.classList.add('on');musicBtn.setAttribute('aria-label','Turn background music off')}catch(e){musicBtn.textContent='Tap for music';}}else{bgMusic.pause();musicBtn.textContent='♫ Music off';musicBtn.classList.remove('on');musicBtn.setAttribute('aria-label','Turn background music on')}}
+const bgMusic=document.getElementById('bgMusic'),musicBtn=document.getElementById('musicBtn');bgMusic.volume=0.34;
+function setMusicButton(state){
+  const labels={on:'♫ Music on',off:'♫ Music off',tap:'♫ Tap for music',error:'♫ Music unavailable'};
+  musicBtn.textContent=labels[state];
+  musicBtn.classList.toggle('on',state==='on');
+  musicBtn.setAttribute('aria-label',state==='on'?'Turn background music off':'Turn background music on');
+}
+async function startMusic(){
+  try{await bgMusic.play();setMusicButton('on');}
+  catch(e){setMusicButton('tap');}
+}
+async function toggleMusic(){
+  if(bgMusic.paused){await startMusic();}
+  else{bgMusic.pause();setMusicButton('off');}
+}
+bgMusic.addEventListener('error',()=>setMusicButton('error'));
+bgMusic.addEventListener('play',()=>setMusicButton('on'));
+bgMusic.addEventListener('pause',()=>{if(bgMusic.currentSrc)setMusicButton('off');});
 musicBtn.addEventListener('click',toggleMusic);
 const fields=['kicker','title','accent','body'];
 function show(n){idx=(n+slides.length)%slides.length;let s=slides[idx];art.style.animation='none';void art.offsetWidth;art.src=s.src;art.style.animation='zoom 8s ease-in-out both';content.className=s.kind;fields.forEach(k=>document.getElementById(k).textContent=String(s[k]||'').replace(/\\n/g,'\n'));document.getElementById('counter').textContent=String(idx+1).padStart(2,'0')+' / 06';[...dots.children].forEach((d,i)=>d.classList.toggle('active',i===idx));elapsed=0;last=performance.now();fill.style.width='0%'}
@@ -15,4 +31,4 @@ document.addEventListener('keydown',e=>{if(e.key==='ArrowRight')show(idx+1);if(e
 let sx=0,sy=0;document.getElementById('stage').addEventListener('touchstart',e=>{sx=e.changedTouches[0].screenX;sy=e.changedTouches[0].screenY},{passive:true});
 document.getElementById('stage').addEventListener('touchend',e=>{let dx=e.changedTouches[0].screenX-sx,dy=e.changedTouches[0].screenY-sy;if(Math.abs(dx)>45&&Math.abs(dx)>Math.abs(dy))show(idx+(dx<0?1:-1))},{passive:true});
 let resumeMusicAfterHide=false;document.addEventListener('visibilitychange',()=>{if(document.hidden){playing=false;play.textContent='▶';resumeMusicAfterHide=!bgMusic.paused;if(resumeMusicAfterHide)bgMusic.pause()}else{playing=true;play.textContent='Ⅱ';last=performance.now();if(resumeMusicAfterHide){bgMusic.play().catch(()=>{});resumeMusicAfterHide=false}}});
-show(0);requestAnimationFrame(loop);
+show(0);startMusic();requestAnimationFrame(loop);

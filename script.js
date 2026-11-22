@@ -4,62 +4,80 @@ const art=document.getElementById('art'),artNext=document.getElementById('artNex
 const bgMusic=document.getElementById('bgMusic'),musicBtn=document.getElementById('musicBtn');bgMusic.volume=0.34;
 function setMusicButton(state){
   const labels={on:'♫ Music on',off:'♫ Music off',tap:'♫ Tap for music',error:'♫ Music unavailable'};
-  musicBtn.textContent=labels[state];
-  musicBtn.classList.toggle('on',state==='on');
+  musicBtn.textContent=labels[state];musicBtn.classList.toggle('on',state==='on');
   musicBtn.setAttribute('aria-label',state==='on'?'Turn background music off':'Turn background music on');
 }
-async function startMusic(){
-  try{await bgMusic.play();setMusicButton('on');}
-  catch(e){setMusicButton('tap');}
-}
-async function toggleMusic(){
-  if(bgMusic.paused){await startMusic();}
-  else{bgMusic.pause();setMusicButton('off');}
-}
+async function startMusic(){try{await bgMusic.play();setMusicButton('on');}catch(e){setMusicButton('tap');}}
+async function toggleMusic(){if(bgMusic.paused)await startMusic();else{bgMusic.pause();setMusicButton('off');}}
 bgMusic.addEventListener('error',()=>setMusicButton('error'));
 bgMusic.addEventListener('play',()=>setMusicButton('on'));
 bgMusic.addEventListener('pause',()=>{if(bgMusic.currentSrc)setMusicButton('off');});
 musicBtn.addEventListener('click',toggleMusic);
-// Browsers often block audible autoplay. If that happens, start music on the
-// visitor's first slide-navigation gesture (swipe, Next button, or arrow key).
 let firstNavigationMusicAttempted=false;
-function enableMusicOnFirstNavigation(){
-  if(firstNavigationMusicAttempted)return;
-  firstNavigationMusicAttempted=true;
-  if(bgMusic.paused)startMusic();
-}
+function enableMusicOnFirstNavigation(){if(firstNavigationMusicAttempted)return;firstNavigationMusicAttempted=true;if(bgMusic.paused)startMusic();}
+
+// Preload and decode each artwork once. Reusing decoded images prevents blank
+// frames and avoids changing the visible image source during a transition.
+const imageCache=slides.map(s=>{
+  const img=new Image();img.src=s.src;
+  return img.decode ? img.decode().catch(()=>{}) : new Promise(resolve=>{
+    if(img.complete)resolve();else{img.onload=resolve;img.onerror=resolve;}
+  });
+});
 const fields=['kicker','title','accent','body'];
-slides.forEach(s=>{const img=new Image();img.src=s.src});
-let visibleArt=art,hiddenArt=artNext,changeToken=0;
-function show(n){
+let visibleArt=art,hiddenArt=artNext,changeToken=0,transitioning=false;
+function resetProgress(){elapsed=0;last=performance.now();fill.style.width='0%';}
+async function waitForImageFade(img, token){
+  await new Promise(resolve=>{
+    let finished=false;
+    const finish=()=>{if(finished)return;finished=true;img.removeEventListener('transitionend',onEnd);resolve();};
+    const onEnd=e=>{if(e.target===img && e.propertyName==='opacity')finish();};
+    img.addEventListener('transitionend',onEnd);
+    // Fallback for reduced-motion settings or browsers that omit transitionend.
+    setTimeout(finish,1000);
+  });
+  return token===changeToken;
+}
+async function show(n){
   const nextIndex=(n+slides.length)%slides.length;
-  if(nextIndex===idx && visibleArt.src) return;
+  if(nextIndex===idx && (visibleArt.getAttribute('src')||'').endsWith(slides[nextIndex].file))return;
   idx=nextIndex;
   const s=slides[idx],token=++changeToken;
+  resetProgress();
+  transitioning=true;
+
+  // Keep the copy hidden while the next artwork is prepared and cross-fades.
   content.classList.add('is-changing');
-  const preload=new Image();
-  preload.onload=()=>{
-    if(token!==changeToken)return;
-    hiddenArt.src=s.src;
-    hiddenArt.classList.add('active');
-    visibleArt.classList.remove('active');
-    const oldVisible=visibleArt;visibleArt=hiddenArt;hiddenArt=oldVisible;
-    content.className=s.kind+' is-changing';
-    fields.forEach(k=>document.getElementById(k).textContent=String(s[k]||'').replace(/\\n/g,'\n'));
-    document.getElementById('counter').textContent=String(idx+1).padStart(2,'0')+' / 06';
-    [...dots.children].forEach((d,i)=>d.classList.toggle('active',i===idx));
-    requestAnimationFrame(()=>requestAnimationFrame(()=>{if(token===changeToken)content.classList.remove('is-changing')}));
-    elapsed=0;last=performance.now();fill.style.width='0%';
-  };
-  preload.onerror=()=>{if(token===changeToken)content.classList.remove('is-changing')};
-  preload.src=s.src;
-  if(preload.complete && preload.naturalWidth)preload.onload();
+  await imageCache[idx];
+  if(token!==changeToken)return;
+
+  hiddenArt.classList.remove('active');
+  hiddenArt.src=s.src;
+  try{if(hiddenArt.decode)await hiddenArt.decode();}catch(e){}
+  if(token!==changeToken)return;
+
+  // Update the text while invisible so it can never appear over the old slide.
+  content.className=s.kind+' is-changing';
+  fields.forEach(k=>{document.getElementById(k).textContent=String(s[k]||'').replace(/\\n/g,'\n')});
+  document.getElementById('counter').textContent=String(idx+1).padStart(2,'0')+' / 06';
+  [...dots.children].forEach((d,i)=>d.classList.toggle('active',i===idx));
+
+  // Start the image cross-fade, then reveal the matching text only after it ends.
+  await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+  if(token!==changeToken)return;
+  hiddenArt.classList.add('active');
+  visibleArt.classList.remove('active');
+  const oldVisible=visibleArt;visibleArt=hiddenArt;hiddenArt=oldVisible;
+  const completed=await waitForImageFade(visibleArt,token);
+  if(!completed)return;
+  content.classList.remove('is-changing');
+  transitioning=false;
 }
 slides.forEach((s,i)=>{let d=document.createElement('button');d.className='dot';d.setAttribute('aria-label','Slide '+(i+1));d.onclick=()=>{enableMusicOnFirstNavigation();show(i)};dots.appendChild(d)});
 document.getElementById('prev').onclick=()=>{enableMusicOnFirstNavigation();show(idx-1)};document.getElementById('next').onclick=()=>{enableMusicOnFirstNavigation();show(idx+1)};
 function toggle(){playing=!playing;play.textContent=playing?'Ⅱ':'▶';play.setAttribute('aria-label',playing?'Pause':'Play');last=performance.now()}
 play.onclick=toggle;
-function loop(now){if(playing){elapsed+=now-last;fill.style.width=Math.min(100,elapsed/duration*100)+'%';if(elapsed>=duration)show(idx+1)}last=now;requestAnimationFrame(loop)}
+function loop(now){if(playing && !transitioning){elapsed+=now-last;fill.style.width=Math.min(100,elapsed/duration*100)+'%';if(elapsed>=duration)show(idx+1)}last=now;requestAnimationFrame(loop)}
 document.addEventListener('keydown',e=>{if(e.key==='ArrowRight'){enableMusicOnFirstNavigation();show(idx+1)}if(e.key==='ArrowLeft'){enableMusicOnFirstNavigation();show(idx-1)}if(e.key===' '){e.preventDefault();toggle()}});
 let sx=0,sy=0;document.getElementById('stage').addEventListener('touchstart',e=>{sx=e.changedTouches[0].screenX;sy=e.changedTouches[0].screenY},{passive:true});
 document.getElementById('stage').addEventListener('touchend',e=>{let dx=e.changedTouches[0].screenX-sx,dy=e.changedTouches[0].screenY-sy;if(Math.abs(dx)>45&&Math.abs(dx)>Math.abs(dy)){enableMusicOnFirstNavigation();show(idx+(dx<0?1:-1))}},{passive:true});

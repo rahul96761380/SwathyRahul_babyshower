@@ -20,6 +20,16 @@ bgMusic.addEventListener('error',()=>setMusicButton('error'));
 bgMusic.addEventListener('play',()=>setMusicButton('on'));
 bgMusic.addEventListener('pause',()=>{if(bgMusic.currentSrc)setMusicButton('off');});
 musicBtn.addEventListener('click',toggleMusic);
+// Browsers often block audible autoplay. Retry immediately on the visitor's first
+// interaction anywhere on the invitation, which supplies the required user gesture.
+let firstInteractionHandled=false;
+async function enableMusicOnFirstInteraction(){
+  if(firstInteractionHandled)return;
+  firstInteractionHandled=true;
+  if(bgMusic.paused)await startMusic();
+}
+document.addEventListener('pointerdown',enableMusicOnFirstInteraction,{once:true,passive:true});
+document.addEventListener('keydown',enableMusicOnFirstInteraction,{once:true});
 const fields=['kicker','title','accent','body'];
 function show(n){idx=(n+slides.length)%slides.length;let s=slides[idx];art.style.animation='none';void art.offsetWidth;art.src=s.src;art.style.animation='zoom 8s ease-in-out both';content.className=s.kind;fields.forEach(k=>document.getElementById(k).textContent=String(s[k]||'').replace(/\\n/g,'\n'));document.getElementById('counter').textContent=String(idx+1).padStart(2,'0')+' / 06';[...dots.children].forEach((d,i)=>d.classList.toggle('active',i===idx));elapsed=0;last=performance.now();fill.style.width='0%'}
 slides.forEach((s,i)=>{let d=document.createElement('button');d.className='dot';d.setAttribute('aria-label','Slide '+(i+1));d.onclick=()=>show(i);dots.appendChild(d)});

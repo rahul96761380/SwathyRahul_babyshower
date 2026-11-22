@@ -1,85 +1,84 @@
-const slides = [{"file": "01_krishna_blessings.jpg", "kicker": "A BEAUTIFUL NEW CHAPTER", "title": "A little\nmiracle", "accent": "is on its way…", "body": "A tiny new heartbeat,\na lifetime of love.", "kind": "opening", "src": "assets/slides/01_krishna_blessings.jpg"}, {"file": "02_krishna_radha.jpg", "kicker": "LOVE, LAUGHTER & LITTLE MOMENTS", "title": "A little mischief,", "accent": "endless love…", "body": "May our little one be surrounded\nby joy, wonder and love.", "kind": "krishna", "src": "assets/slides/02_krishna_radha.jpg"}, {"file": "03_swathy_rahul.jpg", "kicker": "OUR GREATEST ADVENTURE BEGINS", "title": "Swathy &\nRahul", "accent": "Our hearts are\ngrowing…", "body": "Soon to be\nAmma & Appa", "kind": "names", "src": "assets/slides/03_swathy_rahul.jpg"}, {"file": "04_baby_shower.jpg", "kicker": "A DAY FILLED WITH LOVE", "title": "Join us for our", "accent": "Baby Shower", "body": "As we celebrate\nour little one on the way,\nwe would be delighted\nto have you with us.", "kind": "invite", "src": "assets/slides/04_baby_shower.jpg"}, {"file": "05_event_details.jpg", "kicker": "SAVE THE DATE", "title": "Friday, 12 February\n2027", "accent": "8:00 AM", "body": "Raghu Saran Mini Hall\nNo. 1, 1st Cross Street,\nLIC Colony, Pammal, Chennai\nTamil Nadu – 600075\n(Approx. 2 km from Pallavaram\nRailway Station)", "kind": "details", "src": "assets/slides/05_event_details.jpg"}, {"file": "06_closing_blessings.jpg", "kicker": "A LITTLE LOVE MAKES A BIG BLESSING", "title": "Your presence\nwill make our day", "accent": "complete.", "body": "With love and warm wishes,\nSwathy & Rahul", "kind": "closing", "src": "assets/slides/06_closing_blessings.jpg"}];
-const duration=8000;let idx=0,playing=true,elapsed=0,last=performance.now();
-const art=document.getElementById('art'),artNext=document.getElementById('artNext'),content=document.getElementById('content'),fill=document.getElementById('fill'),dots=document.getElementById('dots'),play=document.getElementById('play');
-const bgMusic=document.getElementById('bgMusic'),musicBtn=document.getElementById('musicBtn');bgMusic.volume=0.34;
-function setMusicButton(state){
-  const labels={on:'♫ Music on',off:'♫ Music off',tap:'♫ Tap for music',error:'♫ Music unavailable'};
-  musicBtn.textContent=labels[state];musicBtn.classList.toggle('on',state==='on');
-  musicBtn.setAttribute('aria-label',state==='on'?'Turn background music off':'Turn background music on');
-}
+const slides = [
+  {file:'01_krishna_blessings.jpg',kicker:'A BEAUTIFUL NEW CHAPTER',title:'A little\nmiracle',accent:'is on its way…',body:'A tiny new heartbeat,\na lifetime of love.',kind:'opening',src:'assets/slides/01_krishna_blessings.jpg'},
+  {file:'02_krishna_radha.jpg',kicker:'LOVE, LAUGHTER & LITTLE MOMENTS',title:'A little mischief,',accent:'endless love…',body:'May our little one be surrounded\nby joy, wonder and love.',kind:'krishna',src:'assets/slides/02_krishna_radha.jpg'},
+  {file:'03_swathy_rahul.jpg',kicker:'OUR GREATEST ADVENTURE BEGINS',title:'Swathy &\nRahul',accent:'Our hearts are\ngrowing…',body:'Soon to be\nAmma & Appa',kind:'names',src:'assets/slides/03_swathy_rahul.jpg'},
+  {file:'04_baby_shower.jpg',kicker:'A DAY FILLED WITH LOVE',title:'Join us for our',accent:'Baby Shower',body:'As we celebrate\nour little one on the way,\nwe would be delighted\nto have you with us.',kind:'invite',src:'assets/slides/04_baby_shower.jpg'},
+  {file:'05_event_details.jpg',kicker:'SAVE THE DATE',title:'Friday, 12 February\n2027',accent:'8:00 AM',body:'Raghu Saran Mini Hall\nNo. 1, 1st Cross Street,\nLIC Colony, Pammal, Chennai\nTamil Nadu – 600075\n(Approx. 2 km from Pallavaram\nRailway Station)',kind:'details',src:'assets/slides/05_event_details.jpg'},
+  {file:'06_closing_blessings.jpg',kicker:'A LITTLE LOVE MAKES A BIG BLESSING',title:'Your presence\nwill make our day',accent:'complete.',body:'With love and warm wishes,\nSwathy & Rahul',kind:'closing',src:'assets/slides/06_closing_blessings.jpg'}
+];
+
+const DURATION=8000, IMAGE_FADE_MS=760, TEXT_FADE_MS=420;
+const $=id=>document.getElementById(id);
+const art=$('art'),artNext=$('artNext'),content=$('content'),fill=$('fill'),dots=$('dots'),play=$('play');
+const bgMusic=$('bgMusic'),musicBtn=$('musicBtn');
+let idx=0,playing=true,elapsed=0,last=performance.now(),transitioning=false,queuedIndex=null;
+let visibleArt=art,hiddenArt=artNext,firstNavigationMusicAttempted=false;
+
+function setMusicButton(state){const labels={on:'♫ Music on',off:'♫ Music off',tap:'♫ Tap for music',error:'♫ Music unavailable'};musicBtn.textContent=labels[state];musicBtn.classList.toggle('on',state==='on');musicBtn.setAttribute('aria-label',state==='on'?'Turn background music off':'Turn background music on');}
 async function startMusic(){try{await bgMusic.play();setMusicButton('on');}catch(e){setMusicButton('tap');}}
 async function toggleMusic(){if(bgMusic.paused)await startMusic();else{bgMusic.pause();setMusicButton('off');}}
-bgMusic.addEventListener('error',()=>setMusicButton('error'));
-bgMusic.addEventListener('play',()=>setMusicButton('on'));
-bgMusic.addEventListener('pause',()=>{if(bgMusic.currentSrc)setMusicButton('off');});
-musicBtn.addEventListener('click',toggleMusic);
-let firstNavigationMusicAttempted=false;
+bgMusic.volume=.34;musicBtn.addEventListener('click',toggleMusic);bgMusic.addEventListener('play',()=>setMusicButton('on'));bgMusic.addEventListener('pause',()=>{if(bgMusic.currentSrc)setMusicButton('off')});bgMusic.addEventListener('error',()=>setMusicButton('error'));
 function enableMusicOnFirstNavigation(){if(firstNavigationMusicAttempted)return;firstNavigationMusicAttempted=true;if(bgMusic.paused)startMusic();}
 
-// Preload and decode each artwork once. Reusing decoded images prevents blank
-// frames and avoids changing the visible image source during a transition.
-const imageCache=slides.map(s=>{
-  const img=new Image();img.src=s.src;
-  return img.decode ? img.decode().catch(()=>{}) : new Promise(resolve=>{
-    if(img.complete)resolve();else{img.onload=resolve;img.onerror=resolve;}
-  });
-});
-const fields=['kicker','title','accent','body'];
-let visibleArt=art,hiddenArt=artNext,changeToken=0,transitioning=false;
+const imagePromises=slides.map(s=>new Promise(resolve=>{const im=new Image();im.src=s.src;if(im.decode)im.decode().then(()=>resolve(im)).catch(()=>{if(im.complete&&im.naturalWidth)resolve(im);else{im.onload=()=>resolve(im);im.onerror=()=>resolve(null)}});else{im.onload=()=>resolve(im);im.onerror=()=>resolve(null)}}));
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
 function resetProgress(){elapsed=0;last=performance.now();fill.style.width='0%';}
-async function waitForImageFade(img, token){
-  await new Promise(resolve=>{
-    let finished=false;
-    const finish=()=>{if(finished)return;finished=true;img.removeEventListener('transitionend',onEnd);resolve();};
-    const onEnd=e=>{if(e.target===img && e.propertyName==='opacity')finish();};
-    img.addEventListener('transitionend',onEnd);
-    // Fallback for reduced-motion settings or browsers that omit transitionend.
-    setTimeout(finish,1000);
-  });
-  return token===changeToken;
+function updateText(s){content.className=s.kind+' is-changing';$('kicker').textContent=s.kicker;$('title').textContent=s.title;$('accent').textContent=s.accent;$('body').textContent=s.body;$('counter').textContent=String(idx+1).padStart(2,'0')+' / 06';[...dots.children].forEach((d,i)=>d.classList.toggle('active',i===idx));}
+
+async function show(requested){
+  const target=(requested+slides.length)%slides.length;
+  if(transitioning){queuedIndex=target;return;}
+  if(target===idx && visibleArt.dataset.slide===String(target))return;
+  transitioning=true;resetProgress();
+  try{
+    // Prepare all assets before touching the visible slide.
+    const prepared=await imagePromises[target];
+    if(!prepared)throw new Error('Slide artwork could not be loaded: '+slides[target].src);
+    const s=slides[target];
+    // Fade the complete old copy away before changing any of its content.
+    content.classList.add('is-changing');
+    await wait(TEXT_FADE_MS);
+
+    // Decode the incoming layer before placing it on screen.
+    hiddenArt.classList.remove('active');
+    hiddenArt.src=s.src;
+    if(hiddenArt.decode){try{await hiddenArt.decode();}catch(e){}}
+    hiddenArt.dataset.slide=String(target);
+    idx=target;
+    updateText(s);
+
+    // Force the browser to commit the hidden state, then cross-fade artwork.
+    void hiddenArt.offsetWidth;
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+    hiddenArt.classList.add('active');
+    visibleArt.classList.remove('active');
+    await wait(IMAGE_FADE_MS);
+
+    // Reveal matching copy only after the background transition is complete.
+    content.classList.remove('is-changing');
+    await wait(TEXT_FADE_MS);
+    const old=visibleArt;visibleArt=hiddenArt;hiddenArt=old;
+    transitioning=false;
+    if(queuedIndex!==null){const next=queuedIndex;queuedIndex=null;if(next!==idx)show(next);}
+  }catch(err){console.error(err);content.classList.remove('is-changing');transitioning=false;}
 }
-async function show(n){
-  const nextIndex=(n+slides.length)%slides.length;
-  if(nextIndex===idx && (visibleArt.getAttribute('src')||'').endsWith(slides[nextIndex].file))return;
-  idx=nextIndex;
-  const s=slides[idx],token=++changeToken;
-  resetProgress();
-  transitioning=true;
 
-  // Keep the copy hidden while the next artwork is prepared and cross-fades.
-  content.classList.add('is-changing');
-  await imageCache[idx];
-  if(token!==changeToken)return;
-
-  hiddenArt.classList.remove('active');
-  hiddenArt.src=s.src;
-  try{if(hiddenArt.decode)await hiddenArt.decode();}catch(e){}
-  if(token!==changeToken)return;
-
-  // Update the text while invisible so it can never appear over the old slide.
-  content.className=s.kind+' is-changing';
-  fields.forEach(k=>{document.getElementById(k).textContent=String(s[k]||'').replace(/\\n/g,'\n')});
-  document.getElementById('counter').textContent=String(idx+1).padStart(2,'0')+' / 06';
-  [...dots.children].forEach((d,i)=>d.classList.toggle('active',i===idx));
-
-  // Start the image cross-fade, then reveal the matching text only after it ends.
-  await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
-  if(token!==changeToken)return;
-  hiddenArt.classList.add('active');
-  visibleArt.classList.remove('active');
-  const oldVisible=visibleArt;visibleArt=hiddenArt;hiddenArt=oldVisible;
-  const completed=await waitForImageFade(visibleArt,token);
-  if(!completed)return;
-  content.classList.remove('is-changing');
-  transitioning=false;
-}
-slides.forEach((s,i)=>{let d=document.createElement('button');d.className='dot';d.setAttribute('aria-label','Slide '+(i+1));d.onclick=()=>{enableMusicOnFirstNavigation();show(i)};dots.appendChild(d)});
-document.getElementById('prev').onclick=()=>{enableMusicOnFirstNavigation();show(idx-1)};document.getElementById('next').onclick=()=>{enableMusicOnFirstNavigation();show(idx+1)};
-function toggle(){playing=!playing;play.textContent=playing?'Ⅱ':'▶';play.setAttribute('aria-label',playing?'Pause':'Play');last=performance.now()}
-play.onclick=toggle;
-function loop(now){if(playing && !transitioning){elapsed+=now-last;fill.style.width=Math.min(100,elapsed/duration*100)+'%';if(elapsed>=duration)show(idx+1)}last=now;requestAnimationFrame(loop)}
-document.addEventListener('keydown',e=>{if(e.key==='ArrowRight'){enableMusicOnFirstNavigation();show(idx+1)}if(e.key==='ArrowLeft'){enableMusicOnFirstNavigation();show(idx-1)}if(e.key===' '){e.preventDefault();toggle()}});
-let sx=0,sy=0;document.getElementById('stage').addEventListener('touchstart',e=>{sx=e.changedTouches[0].screenX;sy=e.changedTouches[0].screenY},{passive:true});
-document.getElementById('stage').addEventListener('touchend',e=>{let dx=e.changedTouches[0].screenX-sx,dy=e.changedTouches[0].screenY-sy;if(Math.abs(dx)>45&&Math.abs(dx)>Math.abs(dy)){enableMusicOnFirstNavigation();show(idx+(dx<0?1:-1))}},{passive:true});
+slides.forEach((s,i)=>{const d=document.createElement('button');d.className='dot';d.type='button';d.setAttribute('aria-label','Slide '+(i+1));d.addEventListener('click',()=>{enableMusicOnFirstNavigation();show(i)});dots.appendChild(d)});
+$('prev').addEventListener('click',()=>{enableMusicOnFirstNavigation();show(idx-1)});
+$('next').addEventListener('click',()=>{enableMusicOnFirstNavigation();show(idx+1)});
+function toggle(){playing=!playing;play.textContent=playing?'Ⅱ':'▶';play.setAttribute('aria-label',playing?'Pause':'Play');last=performance.now();}
+play.addEventListener('click',toggle);
+document.addEventListener('keydown',e=>{if(e.key==='ArrowRight'){enableMusicOnFirstNavigation();show(idx+1)}else if(e.key==='ArrowLeft'){enableMusicOnFirstNavigation();show(idx-1)}else if(e.key===' '){e.preventDefault();toggle()}});
+let sx=0,sy=0;const stage=$('stage');stage.addEventListener('touchstart',e=>{sx=e.changedTouches[0].screenX;sy=e.changedTouches[0].screenY},{passive:true});stage.addEventListener('touchend',e=>{const dx=e.changedTouches[0].screenX-sx,dy=e.changedTouches[0].screenY-sy;if(Math.abs(dx)>45&&Math.abs(dx)>Math.abs(dy)){enableMusicOnFirstNavigation();show(idx+(dx<0?1:-1))}},{passive:true});
 let resumeMusicAfterHide=false;document.addEventListener('visibilitychange',()=>{if(document.hidden){playing=false;play.textContent='▶';resumeMusicAfterHide=!bgMusic.paused;if(resumeMusicAfterHide)bgMusic.pause()}else{playing=true;play.textContent='Ⅱ';last=performance.now();if(resumeMusicAfterHide){bgMusic.play().catch(()=>{});resumeMusicAfterHide=false}}});
-show(0);startMusic();requestAnimationFrame(loop);
+
+async function init(){
+  stage.classList.add('loading');
+  await Promise.all([...imagePromises,document.fonts?document.fonts.ready:Promise.resolve()]);
+  art.src=slides[0].src;art.dataset.slide='0';if(art.decode){try{await art.decode()}catch(e){}}
+  idx=0;updateText(slides[0]);
+  art.classList.add('active');content.classList.remove('is-changing');stage.classList.remove('loading');
+  resetProgress();startMusic();
+}
+function loop(now){if(playing&&!transitioning){elapsed+=now-last;fill.style.width=Math.min(100,elapsed/DURATION*100)+'%';if(elapsed>=DURATION)show(idx+1)}last=now;requestAnimationFrame(loop)}
+init();requestAnimationFrame(loop);

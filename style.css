@@ -1,7 +1,6 @@
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Great+Vibes&family=Playfair+Display:wght@400;500;600;700&display=swap');
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#160d0a}
 #stage{position:relative;width:100%;height:calc(100vh - 68px);height:calc(100svh - 68px);height:calc(100dvh - 68px);min-height:0;overflow:hidden;color:#542d18;isolation:isolate;background:#160d0a}
-.art-layer{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;opacity:0;transform:scale(1.035);transition:opacity .9s ease-in-out;will-change:opacity}
+.art-layer{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;opacity:0;transform:translateZ(0) scale(1.015);transition:opacity .76s cubic-bezier(.22,.61,.36,1);will-change:opacity;backface-visibility:hidden}
 .art-layer.active{opacity:1}
 @media(prefers-reduced-motion:reduce){.art-layer{transition:none}}
 #veil{position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(180deg,rgba(25,12,5,.1),transparent 22%,transparent 75%,rgba(25,12,5,.2))}
@@ -282,6 +281,8 @@ html,body{width:100%;height:100%;overflow:hidden;overscroll-behavior:none}
 @media(max-width:700px){#musicBtn{height:38px;min-width:42px;padding:0 10px;font-size:12px}}
 
 /* Gentle cross-fade for slide copy; avoids abrupt text swaps and flicker. */
-#content{opacity:1;transition:opacity .38s ease-in-out}
+#content{opacity:1;transition:opacity .42s ease-in-out;will-change:opacity}
 #content.is-changing{opacity:0}
-@media(prefers-reduced-motion:reduce){#content{transition:none}}
+@media(prefers-reduced-motion:reduce){#content,.art-layer{transition:none}}
+#stage.loading #content,#stage.loading #top,#stage.loading #controls,#stage.loading #hint{visibility:hidden}
+#stage.loading .art-layer{opacity:0!important}

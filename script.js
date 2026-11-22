@@ -20,25 +20,23 @@ bgMusic.addEventListener('error',()=>setMusicButton('error'));
 bgMusic.addEventListener('play',()=>setMusicButton('on'));
 bgMusic.addEventListener('pause',()=>{if(bgMusic.currentSrc)setMusicButton('off');});
 musicBtn.addEventListener('click',toggleMusic);
-// Browsers often block audible autoplay. Retry immediately on the visitor's first
-// interaction anywhere on the invitation, which supplies the required user gesture.
-let firstInteractionHandled=false;
-async function enableMusicOnFirstInteraction(){
-  if(firstInteractionHandled)return;
-  firstInteractionHandled=true;
-  if(bgMusic.paused)await startMusic();
+// Browsers often block audible autoplay. If that happens, start music on the
+// visitor's first slide-navigation gesture (swipe, Next button, or arrow key).
+let firstNavigationMusicAttempted=false;
+function enableMusicOnFirstNavigation(){
+  if(firstNavigationMusicAttempted)return;
+  firstNavigationMusicAttempted=true;
+  if(bgMusic.paused)startMusic();
 }
-document.addEventListener('pointerdown',enableMusicOnFirstInteraction,{once:true,passive:true});
-document.addEventListener('keydown',enableMusicOnFirstInteraction,{once:true});
 const fields=['kicker','title','accent','body'];
 function show(n){idx=(n+slides.length)%slides.length;let s=slides[idx];art.style.animation='none';void art.offsetWidth;art.src=s.src;art.style.animation='zoom 8s ease-in-out both';content.className=s.kind;fields.forEach(k=>document.getElementById(k).textContent=String(s[k]||'').replace(/\\n/g,'\n'));document.getElementById('counter').textContent=String(idx+1).padStart(2,'0')+' / 06';[...dots.children].forEach((d,i)=>d.classList.toggle('active',i===idx));elapsed=0;last=performance.now();fill.style.width='0%'}
-slides.forEach((s,i)=>{let d=document.createElement('button');d.className='dot';d.setAttribute('aria-label','Slide '+(i+1));d.onclick=()=>show(i);dots.appendChild(d)});
-document.getElementById('prev').onclick=()=>show(idx-1);document.getElementById('next').onclick=()=>show(idx+1);
+slides.forEach((s,i)=>{let d=document.createElement('button');d.className='dot';d.setAttribute('aria-label','Slide '+(i+1));d.onclick=()=>{enableMusicOnFirstNavigation();show(i)};dots.appendChild(d)});
+document.getElementById('prev').onclick=()=>{enableMusicOnFirstNavigation();show(idx-1)};document.getElementById('next').onclick=()=>{enableMusicOnFirstNavigation();show(idx+1)};
 function toggle(){playing=!playing;play.textContent=playing?'Ⅱ':'▶';play.setAttribute('aria-label',playing?'Pause':'Play');last=performance.now()}
 play.onclick=toggle;
 function loop(now){if(playing){elapsed+=now-last;fill.style.width=Math.min(100,elapsed/duration*100)+'%';if(elapsed>=duration)show(idx+1)}last=now;requestAnimationFrame(loop)}
-document.addEventListener('keydown',e=>{if(e.key==='ArrowRight')show(idx+1);if(e.key==='ArrowLeft')show(idx-1);if(e.key===' '){e.preventDefault();toggle()}});
+document.addEventListener('keydown',e=>{if(e.key==='ArrowRight'){enableMusicOnFirstNavigation();show(idx+1)}if(e.key==='ArrowLeft'){enableMusicOnFirstNavigation();show(idx-1)}if(e.key===' '){e.preventDefault();toggle()}});
 let sx=0,sy=0;document.getElementById('stage').addEventListener('touchstart',e=>{sx=e.changedTouches[0].screenX;sy=e.changedTouches[0].screenY},{passive:true});
-document.getElementById('stage').addEventListener('touchend',e=>{let dx=e.changedTouches[0].screenX-sx,dy=e.changedTouches[0].screenY-sy;if(Math.abs(dx)>45&&Math.abs(dx)>Math.abs(dy))show(idx+(dx<0?1:-1))},{passive:true});
+document.getElementById('stage').addEventListener('touchend',e=>{let dx=e.changedTouches[0].screenX-sx,dy=e.changedTouches[0].screenY-sy;if(Math.abs(dx)>45&&Math.abs(dx)>Math.abs(dy)){enableMusicOnFirstNavigation();show(idx+(dx<0?1:-1))}},{passive:true});
 let resumeMusicAfterHide=false;document.addEventListener('visibilitychange',()=>{if(document.hidden){playing=false;play.textContent='▶';resumeMusicAfterHide=!bgMusic.paused;if(resumeMusicAfterHide)bgMusic.pause()}else{playing=true;play.textContent='Ⅱ';last=performance.now();if(resumeMusicAfterHide){bgMusic.play().catch(()=>{});resumeMusicAfterHide=false}}});
 show(0);startMusic();requestAnimationFrame(loop);

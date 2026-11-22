@@ -286,3 +286,11 @@ html,body{width:100%;height:100%;overflow:hidden;overscroll-behavior:none}
 @media(prefers-reduced-motion:reduce){#content,.art-layer{transition:none}}
 #stage.loading #content,#stage.loading #top,#stage.loading #controls,#stage.loading #hint{visibility:hidden}
 #stage.loading .art-layer{opacity:0!important}
+
+
+/* Scene-level transition: artwork and its matching typography always move together. */
+#scene{position:absolute;inset:0;z-index:0;opacity:1;transition:opacity .48s ease-in-out;will-change:opacity;isolation:isolate}
+#scene.is-fading{opacity:0}
+#scene .art-layer{transition:none;opacity:1!important}
+#stage.loading #scene{opacity:0}
+@media(prefers-reduced-motion:reduce){#scene{transition:none}}

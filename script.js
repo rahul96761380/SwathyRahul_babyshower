@@ -7,12 +7,12 @@ const slides = [
   {file:'06_closing_blessings.jpg',kicker:'A LITTLE LOVE MAKES A BIG BLESSING',title:'Your presence\nwill make our day',accent:'complete.',body:'With love and warm wishes,\nSwathy & Rahul',kind:'closing',src:'assets/slides/06_closing_blessings.jpg'}
 ];
 
-const DURATION=8000, IMAGE_FADE_MS=760, TEXT_FADE_MS=420;
+const DURATION=8000, SCENE_FADE_MS=480;
 const $=id=>document.getElementById(id);
-const art=$('art'),artNext=$('artNext'),content=$('content'),fill=$('fill'),dots=$('dots'),play=$('play');
+const art=$('art'),scene=$('scene'),content=$('content'),fill=$('fill'),dots=$('dots'),play=$('play');
 const bgMusic=$('bgMusic'),musicBtn=$('musicBtn');
 let idx=0,playing=true,elapsed=0,last=performance.now(),transitioning=false,queuedIndex=null;
-let visibleArt=art,hiddenArt=artNext,firstNavigationMusicAttempted=false;
+let firstNavigationMusicAttempted=false;
 
 function setMusicButton(state){const labels={on:'♫ Music on',off:'♫ Music off',tap:'♫ Tap for music',error:'♫ Music unavailable'};musicBtn.textContent=labels[state];musicBtn.classList.toggle('on',state==='on');musicBtn.setAttribute('aria-label',state==='on'?'Turn background music off':'Turn background music on');}
 async function startMusic(){try{await bgMusic.play();setMusicButton('on');}catch(e){setMusicButton('tap');}}
@@ -23,44 +23,31 @@ function enableMusicOnFirstNavigation(){if(firstNavigationMusicAttempted)return;
 const imagePromises=slides.map(s=>new Promise(resolve=>{const im=new Image();im.src=s.src;if(im.decode)im.decode().then(()=>resolve(im)).catch(()=>{if(im.complete&&im.naturalWidth)resolve(im);else{im.onload=()=>resolve(im);im.onerror=()=>resolve(null)}});else{im.onload=()=>resolve(im);im.onerror=()=>resolve(null)}}));
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
 function resetProgress(){elapsed=0;last=performance.now();fill.style.width='0%';}
-function updateText(s){content.className=s.kind+' is-changing';$('kicker').textContent=s.kicker;$('title').textContent=s.title;$('accent').textContent=s.accent;$('body').textContent=s.body;$('counter').textContent=String(idx+1).padStart(2,'0')+' / 06';[...dots.children].forEach((d,i)=>d.classList.toggle('active',i===idx));}
+function updateText(s){content.className=s.kind;$('kicker').textContent=s.kicker;$('title').textContent=s.title;$('accent').textContent=s.accent;$('body').textContent=s.body;$('counter').textContent=String(idx+1).padStart(2,'0')+' / 06';[...dots.children].forEach((d,i)=>d.classList.toggle('active',i===idx));}
 
 async function show(requested){
   const target=(requested+slides.length)%slides.length;
   if(transitioning){queuedIndex=target;return;}
-  if(target===idx && visibleArt.dataset.slide===String(target))return;
+  if(target===idx)return;
   transitioning=true;resetProgress();
   try{
-    // Prepare all assets before touching the visible slide.
+    // Wait until the target artwork is fully decoded before changing the visible scene.
     const prepared=await imagePromises[target];
     if(!prepared)throw new Error('Slide artwork could not be loaded: '+slides[target].src);
-    const s=slides[target];
-    // Fade the complete old copy away before changing any of its content.
-    content.classList.add('is-changing');
-    await wait(TEXT_FADE_MS);
+    scene.classList.add('is-fading');
+    await wait(SCENE_FADE_MS);
 
-    // Decode the incoming layer before placing it on screen.
-    hiddenArt.classList.remove('active');
-    hiddenArt.src=s.src;
-    if(hiddenArt.decode){try{await hiddenArt.decode();}catch(e){}}
-    hiddenArt.dataset.slide=String(target);
-    idx=target;
-    updateText(s);
-
-    // Force the browser to commit the hidden state, then cross-fade artwork.
-    void hiddenArt.offsetWidth;
+    // Change image and copy only while the complete scene is invisible.
+    art.src=slides[target].src;
+    if(art.decode){try{await art.decode();}catch(e){}}
+    idx=target;updateText(slides[target]);
+    void scene.offsetWidth;
     await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
-    hiddenArt.classList.add('active');
-    visibleArt.classList.remove('active');
-    await wait(IMAGE_FADE_MS);
-
-    // Reveal matching copy only after the background transition is complete.
-    content.classList.remove('is-changing');
-    await wait(TEXT_FADE_MS);
-    const old=visibleArt;visibleArt=hiddenArt;hiddenArt=old;
+    scene.classList.remove('is-fading');
+    await wait(SCENE_FADE_MS);
     transitioning=false;
     if(queuedIndex!==null){const next=queuedIndex;queuedIndex=null;if(next!==idx)show(next);}
-  }catch(err){console.error(err);content.classList.remove('is-changing');transitioning=false;}
+  }catch(err){console.error(err);scene.classList.remove('is-fading');transitioning=false;}
 }
 
 slides.forEach((s,i)=>{const d=document.createElement('button');d.className='dot';d.type='button';d.setAttribute('aria-label','Slide '+(i+1));d.addEventListener('click',()=>{enableMusicOnFirstNavigation();show(i)});dots.appendChild(d)});
@@ -74,10 +61,21 @@ let resumeMusicAfterHide=false;document.addEventListener('visibilitychange',()=>
 
 async function init(){
   stage.classList.add('loading');
-  await Promise.all([...imagePromises,document.fonts?document.fonts.ready:Promise.resolve()]);
-  art.src=slides[0].src;art.dataset.slide='0';if(art.decode){try{await art.decode()}catch(e){}}
+  // Explicitly load every typeface used by the slide copy before revealing anything.
+  const fontReady=document.fonts?Promise.all([
+    document.fonts.load('600 16px "Playfair Display"'),
+    document.fonts.load('500 48px "Great Vibes"'),
+    document.fonts.load('500 24px "Cormorant Garamond"'),
+    document.fonts.ready
+  ]):Promise.resolve();
+  await Promise.all([...imagePromises,fontReady]);
+  art.src=slides[0].src;
+  if(art.decode){try{await art.decode()}catch(e){}}
   idx=0;updateText(slides[0]);
-  art.classList.add('active');content.classList.remove('is-changing');stage.classList.remove('loading');
+  void scene.offsetWidth;
+  await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+  scene.classList.remove('is-fading');
+  stage.classList.remove('loading');
   resetProgress();startMusic();
 }
 function loop(now){if(playing&&!transitioning){elapsed+=now-last;fill.style.width=Math.min(100,elapsed/DURATION*100)+'%';if(elapsed>=DURATION)show(idx+1)}last=now;requestAnimationFrame(loop)}
